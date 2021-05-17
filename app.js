@@ -2,7 +2,9 @@ const express = require ('express');
 const path = require('path');
 const mongoose = require('mongoose');
 const ejsMate = require('ejs-mate');
+const Joi = require('joi');
 const catchAsync = require('./utils/catchAsync');
+const ExpressError = require('./utils/ExpressError');
 const methodOverride = require('method-override');
 const Campground = require('./models/campground');
 
@@ -41,6 +43,23 @@ app.get('/campgrounds/new', (req, res) => {
 });
 
 app.post('/campgrounds', catchAsync(async(req, res, next) => {
+    // if(!req.body.campground) throw new ExpressError('Invalid Campground Data', 400);
+    // Define schema for joi validation (before even attempt to save with Mongoose)
+    const campgroundSchema = Joi.object({
+        campground: Joi.object({
+            title: Joi.string().required(),
+            price: Joi.number().required().min(0),
+            image: Joi.string().required(),
+            location: Joi.string().required(),
+            description: Joi.string().required()
+        }).required()
+    })
+    const { error } = campgroundSchema.validate(req.body);
+    if(error) {
+        const msg = error.details.map(el => el.message).join(',')
+        throw new ExpressError(msg, 400)
+    }
+    console.log(result);
     const campground = new Campground(req.body.campground);
     await campground.save();
     res.redirect(`/campgrounds/${campground._id}`)
@@ -69,8 +88,20 @@ app.delete('/campgrounds/:id', catchAsync(async (req, res) => {
     res.redirect('/campgrounds');
 }));
 
+// For every request verb, for every path
+// Will only run if nothing has matched before this
+// Pass in message and status code to new ExpressError
+app.all('*', (req, res, next) => {
+    next(new ExpressError('Page Not Found', 404))
+})
+
 app.use((err, req, res, next) => {
-    res.send('Uh oh, error!')
+    // Give defaults for status code and message
+    // Destructure to extract from err
+    const { statusCode = 500 } = err;
+    if(!err.message) err.message = 'Oh no, something went wrong!'
+    res.status(statusCode).render('error', { err });
+    res.send('Error!')
 });
 
 app.listen(3000, ()=> {
