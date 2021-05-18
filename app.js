@@ -109,6 +109,15 @@ app.post('/campgrounds/:id/reviews', validateReview, catchAsync(async (req, res)
     res.redirect(`/campgrounds/${campground._id}`);
 }));
 
+app.delete('/campgrounds/:id/reviews/:reviewId', catchAsync(async (req, res) => {
+    const {id, reviewId} = req.params;
+    // Need to find reference to the review to be deleted within the array of associated reviews in the campground
+    await Campground.findByIdAndUpdate(id,  { $pull: { reviews: reviewId } });
+    // As well as deleting the actual review from the reviews collection
+    await Review.findByIdAndDelete(reviewId);
+    res.redirect(`/campgrounds/${id}`);
+}));
+
 // For every request verb, for every path
 // Will only run if nothing has matched before this
 // Pass in message and status code to new ExpressError
